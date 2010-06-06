@@ -8,7 +8,7 @@ dir_src=
 dir_bin=
 dir_tmp=
 dir_sin=
-dir_inc=c:\mcc18\h;..\microchip\include;C:\Microchip Solutions\USBIRr
+dir_inc=c:\mcc18\h;.\usb_stack\Include;C:\Microchip Solutions\USBIRr
 dir_lib=C:\mcc18\lib
 dir_lkr=
 [CAT_FILTERS]
@@ -102,8 +102,8 @@ file_022=no
 file_023=no
 file_024=no
 [FILE_INFO]
-file_000=..\Microchip\Usb\usb_device.c
-file_001=..\Microchip\Usb\CDC Device Driver\usb_function_cdc.c
+file_000=usb_stack\Usb\usb_device.c
+file_001=usb_stack\Usb\CDC Device Driver\usb_function_cdc.c
 file_002=usb_descriptors.c
 file_003=main.c
 file_004=SUMP.c

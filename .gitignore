@@ -1,0 +1,6 @@
+*.o
+*.cof
+*.map
+*.mcs
+*.err
+*.old
