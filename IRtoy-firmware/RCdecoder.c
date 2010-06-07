@@ -22,6 +22,8 @@
 #include "./USB/usb_device.h" 
 #include "./USB/usb_function_cdc.h"
 
+#include "decoder.h"
+
 extern struct _irtoy irToy;
 
 static enum _RC5STATE{
@@ -67,18 +69,29 @@ void ProcessIR(void){
 		//rc5x=irToy.s[0]; //0 second start bit, use below
 		//toggle=irToy.s[1]; //1 toggle bit, discard
 
-		irToy.usbOut[0]=0; //addr=0; //address is first byte of 6 byte packet
-		for(i=2;i<7;i++){ //loop through and assemble 8 address bits into byte
-			irToy.usbOut[0]<<=1;
-			irToy.usbOut[0]|=irToy.s[i];					
+		unsigned char addr;
+		unsigned char data;
+
+		if(irToy.s[0] > 0x50) {  //if start pulse is more than 50 samples
+			if(!decodeNec(&addr, &data)) //try to decode it as a NEC remote
+				goto end;
+		} else { //otherwise it might be RC5?
+			if(!decodeRC5(&addr, &data))
+				goto end;
 		}
 
-		irToy.usbOut[1]=irToy.s[0]; //command is second byte
-											  // optional rc5x bit is bit 6
-		for(i=7;i<13;i++){ //assemble 6 command bits into byte
-			irToy.usbOut[1]<<=1;
-			irToy.usbOut[1]|=irToy.s[i];
-		}
+		irToy.usbOut[0]=addr; //addr=0; //address is first byte of 6 byte packet
+		//for(i=2;i<7;i++){ //loop through and assemble 8 address bits into byte
+		//	irToy.usbOut[0]<<=1;
+		//	irToy.usbOut[0]|=irToy.s[i];					
+		//}
+
+		irToy.usbOut[1]=data; //irToy.s[0]; //command is second byte
+		//									  // optional rc5x bit is bit 6
+		//for(i=7;i<13;i++){ //assemble 6 command bits into byte
+		//	irToy.usbOut[1]<<=1;
+		//	irToy.usbOut[1]|=irToy.s[i];
+		//}
 
 
 		//irToy.usbOut[0]=addr;
@@ -91,6 +104,7 @@ void ProcessIR(void){
 
 		putUSBUSART(irToy.usbOut,6);
 
+end:
 		decoderState=IDLE;//wait for more RC commands....
 		IRRX_IE=1;//interrupts back on	
 
@@ -101,61 +115,67 @@ void ProcessIR(void){
 //high priority interrupt routine
 #pragma interrupt IRdecoderInterruptHandlerHigh
 void IRdecoderInterruptHandlerHigh (void){
+	unsigned char transitioned = 0, donesampling = 0;
 
 	//RC5 decoder
 	if(IRRX_IE==1 && IRRX_IF == 1){ //if RB Port Change Interrupt	
 	  if(decoderState==IDLE && ((IRRX_PORT & IRRX_PIN)==0) ){//only if idle and pin state == 0
 			IRRX_IE=0;	//disable port b interrupt
   			LED_LAT |= LED_PIN; //LED ON! (off after .5 bit period)
-			T2_RC5halfbitperiod(); //setup to hit in the middle of next bit period
+			//T2_RC5halfbitperiod(); //setup to hit in the middle of next bit period
+			T2_RXsampleperiod();
 			T2IF=0;//clear the interrupt flag
 			T2IE=1; //able interrupts...
 			T2ON=1;
-			decoderState=HALF_PERIOD;
+
+			irToy.samplecount = 0;
+			irToy.s[irToy.samplecount] = 0;
+			decoderState=BIT_PERIOD_0;
 		}	
     	IRRX_IF = 0;    //Reset the RB Port Change Interrupt Flag bit  
 
   	}else if(T2IE==1 && T2IF==1){
 		switch(decoderState){
-			case HALF_PERIOD: //middle of first bit period is actually second bit of first pair (first bit is invisible)
-				T2ON=0;//timer off
-				T2_RC5bitperiod(); //full bit values from now on
-				RC5.bcnt=0; //reset samples
-				decoderState=BIT_PERIOD_0; //next timeis bit period 0
-
-				T2IF=0;//clear the interrupt flag
-				T2IE=1; //able interrupts...
-				T2ON=1;
-				
-				LED_LAT &= (~LED_PIN); //LED OFF!
-				break;
 			case BIT_PERIOD_0:
-				RC5.bp0=IRX;
-				decoderState=BIT_PERIOD_1;
+				if((IRRX_PORT & IRRX_PIN)!=0) {
+					transitioned = 1;
+					decoderState=BIT_PERIOD_1;
+				} else {
+				}
 				break;
 			case BIT_PERIOD_1:
-				RC5.bp1=IRX;
-
-				if(RC5.bp0==1 && RC5.bp1==0){
-					irToy.s[RC5.bcnt]=1;
-				}else if (RC5.bp0==0 && RC5.bp1==1){
-					irToy.s[RC5.bcnt]=0;
-				}else{//error			
-					decoderState=IDLE; //reset
-					T2ON=0; //timer off
-					IRRX_IE=1;	//IR interrupts back on
-					break;
+				if((IRRX_PORT & IRRX_PIN)==0) {
+					transitioned = 1;
+					decoderState=BIT_PERIOD_0;
 				}
-
-				decoderState=BIT_PERIOD_0;
-
-				RC5.bcnt++;			
-				if(RC5.bcnt==13){//done sampling
-					decoderState=SEND; //process and send in service loop
-					T2ON=0;//turn off the timer
-				}
-				break;				
+				break;
 		}//switch
+
+		if(transitioned) {
+			irToy.samplecount++;
+			if(irToy.samplecount == 0x80) { //overflow
+				decoderState=IDLE;
+				T2ON=0; //turn off timer
+				IRRX_IE=1; //reenable ir rx interrupt
+				LED_LAT &= (~LED_PIN); //LED OFF!
+			} else {
+				irToy.s[irToy.samplecount] = 0;
+			}
+
+		} else if(!donesampling) {
+			irToy.s[irToy.samplecount]++;			
+			//finished sampling because we got a lot of idle time
+			if(irToy.s[irToy.samplecount] == 100) {
+				donesampling = 1;
+			}
+		}
+
+		if(donesampling) {
+			decoderState=SEND;
+			T2ON=0; //turn off timer
+			LED_LAT &= (~LED_PIN); //LED OFF!
+		}
+
 		T2IF=0;//clear the interrupt flag
 	}//if   
 }

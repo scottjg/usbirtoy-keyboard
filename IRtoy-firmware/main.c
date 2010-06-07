@@ -59,6 +59,7 @@ static enum _mode {
 	//IR_RECORDER //record IR signal to EEPROM, playback
 } mode=IR_DECODER; //mode variable tracks the IR Toy mode
 
+#pragma udata global_buffer
 struct _irtoy irToy;
 
 void SetupBoard(void);

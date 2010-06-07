@@ -6,10 +6,11 @@
 *	http://dangerousprototypes.com
 *
 */
-#define SAMPLE_ARRAY_SIZE 0x0080 //0x0010
+#define SAMPLE_ARRAY_SIZE 0x80//0x0080 //0x0010
 #define SAMPLE_SIZE 0x0400 //0x0080 //(SAMPLE_ARRAY_SIZE*0x0008)
 struct _irtoy{
 	unsigned char s[SAMPLE_ARRAY_SIZE];
+	unsigned char samplecount;
 	unsigned char usbIn[30];
 	unsigned char usbOut[64];
 };
