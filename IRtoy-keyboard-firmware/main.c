@@ -262,17 +262,10 @@ void USBHIDCBSetReportComplete(void)
 	//1 byte of LED state data should now be in the CtrlTrfData buffer.
 
 	//Num Lock LED state is in Bit0.
-	if(CtrlTrfData[0] & 0x01)	//Make LED1 and LED2 match Num Lock state.
+	if(CtrlTrfData[0] == 0xAA)	//Make LED1 and LED2 match Num Lock state.
 	{
-		//mLED_1_On();
-		//mLED_2_On();
+		BootloaderJump();
 	}
-	else
-	{
-		//mLED_1_Off();
-		//mLED_2_Off();			
-	}
-
 }	
 
 void USBHIDCBSetReportHandler(void)

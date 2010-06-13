@@ -211,7 +211,7 @@ ROM BYTE configDescriptor1[]={
     0x00,                   // Country Code (0x00 for Not supported)
     HID_NUM_OF_DSC,         // Number of class descriptors, see usbcfg.h
     DSC_RPT,                // Report descriptor type
-    DESC_CONFIG_WORD(63),   //sizeof(hid_rpt01),      // Size of the report descriptor
+    DESC_CONFIG_WORD(63+12),   //sizeof(hid_rpt01),      // Size of the report descriptor
     
     /* Endpoint Descriptor */
     0x07,/*sizeof(USB_EP_DSC)*/
@@ -283,6 +283,12 @@ ROM struct{BYTE report[HID_RPT01_SIZE];}hid_rpt01={
     0x19, 0x00,                    //   USAGE_MINIMUM (Reserved (no event indicated))
     0x29, 0x65,                    //   USAGE_MAXIMUM (Keyboard Application)
     0x81, 0x00,                    //   INPUT (Data,Ary,Abs)
+       0x09, 0x05,      // Usage ID - vendor defined
+       0x15, 0x00,      // Logical Minimum (0)
+       0x25, 0xFF,     // Logical Maximum (255)
+       0x75, 0x08,   // Report Size (8 bits)
+       0x95, 0x01,   // Report Count (2 fields)
+       0xB1, 0x02,      // Feature (Data, Variable, Absolute)  
     0xc0}                          // End Collection
 };
 

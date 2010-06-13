@@ -115,6 +115,7 @@ void ProcessIR(void){
 				break;
 			case 0x34: //ff
 				key = 0x04 + ('f' - 'a'); //'f'
+				break;
 			default:
 				key = 0;
 		}
